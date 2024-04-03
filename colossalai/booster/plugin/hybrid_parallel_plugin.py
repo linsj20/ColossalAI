@@ -1160,16 +1160,11 @@ class HybridParallelPlugin(PipelinePluginBase):
     ) -> Tuple[Module, OptimizerWrapper, Callable, DataLoader, LRScheduler]:
         param_info = get_param_info(optimizer)
         if not isinstance(model, ModelWrapper):
-<<<<<<< HEAD
-            use_ddp = (self.dp_size > 1 and self.pp_size == 1 and self.zero_stage == 0) or \
-                (self.dp_size == 1 and self.enable_sequence_parallelism and self.sequence_parallelism_mode == "all_to_all")
-=======
             use_ddp = (self.dp_size > 1 and self.pp_size == 1 and self.zero_stage == 0) or (
                 self.dp_size == 1
                 and self.enable_sequence_parallelism
                 and self.sequence_parallelism_mode == "all_to_all"
             )
->>>>>>> aea4fb6296c646febf8bdf4fae23ed7b99224175
             if self.enable_sequence_parallelism and self.sequence_parallelism_mode == "all_to_all":
                 dp_group = self.pg_mesh.create_group_along_axis([DP_AXIS, SP_AXIS])
             else:
