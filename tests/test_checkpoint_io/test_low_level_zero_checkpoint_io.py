@@ -6,9 +6,6 @@ import torch.distributed as dist
 from peft import LoraConfig
 from torchvision.models import resnet18
 from utils import shared_tempdir
-from typing import Optional
-from peft import LoraConfig
-from copy import deepcopy
 
 import colossalai
 from colossalai.booster import Booster
