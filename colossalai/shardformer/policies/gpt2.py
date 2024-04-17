@@ -6,6 +6,7 @@ from torch import Tensor, nn
 
 import colossalai.shardformer.layer as col_nn
 
+from ..layer.fused_ops import Bias_Gelu
 from ..modeling.gpt2 import (
     GPT2PipelineForwards,
     get_gpt2_flash_attention_forward,
@@ -190,6 +191,31 @@ class GPT2Policy(Policy):
         return policy
 
     def postprocess(self):
+        import torch
+
+        from colossalai.shardformer._utils import getattr_, setattr_
+
+        def bias_gelu_substitute_gpt2(module):
+            if torch.distributed.get_rank() == 0:
+                print(module.__class__.__name__)
+            target_linear = None
+            for name, child in module.named_children():
+                bias_gelu_substitute_gpt2(child)
+                if name == "GPT2FusedLinearConv1D_Row":
+                    target_linear = child
+                elif target_linear is not None:
+                    if name == "NewGELUActivation":
+                        # TODO substitute
+                        suffix = "mlp.NewGELUActivation"
+                        native_sub_module = getattr_(org_layer, suffix, ignore=True)
+                        assert native_sub_module is not None
+                        Bias_Gelu(target_linear.bias_)
+                        target_linear.bias_ = None
+                        setattr_(native_sub_module, suffix, replace_sub_module)
+
+                    target_linear = None
+
+        bias_gelu_substitute_gpt2(self.model)
         return self.model
 
     def get_held_layers(self) -> List[nn.Module]:

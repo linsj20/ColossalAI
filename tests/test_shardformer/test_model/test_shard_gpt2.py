@@ -226,6 +226,7 @@ def run_gpt2_test(test_config):
         _,
     ) in sub_model_zoo.items():
         check_forward_backward(model_fn, data_gen_fn, output_transform_fn, loss_fn, test_config)
+        exit(1)
 
     clear_layout_converter()
     torch.cuda.empty_cache()
