@@ -193,29 +193,30 @@ class GPT2Policy(Policy):
     def postprocess(self):
         import torch
 
-        from colossalai.shardformer._utils import getattr_, setattr_
+        from colossalai.shardformer._utils import setattr_
 
         def bias_gelu_substitute_gpt2(module):
-            if torch.distributed.get_rank() == 0:
-                print(module.__class__.__name__)
             target_linear = None
             for name, child in module.named_children():
                 bias_gelu_substitute_gpt2(child)
-                if name == "GPT2FusedLinearConv1D_Row":
+                if name == "c_fc" and isinstance(child, col_nn.GPT2FusedLinearConv1D_Col):
                     target_linear = child
                 elif target_linear is not None:
-                    if name == "NewGELUActivation":
-                        # TODO substitute
-                        suffix = "mlp.NewGELUActivation"
-                        native_sub_module = getattr_(org_layer, suffix, ignore=True)
-                        assert native_sub_module is not None
-                        Bias_Gelu(target_linear.bias_)
-                        target_linear.bias_ = None
-                        setattr_(native_sub_module, suffix, replace_sub_module)
+                    if name == "act":
+                        replace_sub_module = Bias_Gelu(target_linear.bias)
+                        target_linear.bias = None
+                        setattr_(module, "act", replace_sub_module)
 
-                    target_linear = None
+                        target_linear = None
+
+        def trial(module):
+            if torch.distributed.get_rank() == 0:
+                print(module.__class__.__name__)
+            for name, child in module.named_children():
+                trial(child)
 
         bias_gelu_substitute_gpt2(self.model)
+        trial(self.model)
         return self.model
 
     def get_held_layers(self) -> List[nn.Module]:
